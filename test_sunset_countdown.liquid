@@ -1,0 +1,20 @@
+{%- comment -%} Calculate sunset time difference {%- endcomment -%}
+{%- assign now_timestamp = "now" | date: "%Y-%m-%dT%H:%M:%S%z" | date: "%s" -%}
+{%- assign sunset_timestamp = "2025-06-30T21:19:30Z" | date: "%s" -%}
+{%- assign time_diff = sunset_timestamp | minus: now_timestamp -%}
+{%- if time_diff > 0 -%}
+  {%- assign hours = time_diff | divided_by: 3600 -%}
+  {%- assign remaining_seconds = time_diff | modulo: 3600 -%}
+  {%- assign minutes = remaining_seconds | divided_by: 60 -%}
+  {%- if hours > 0 -%}
+    {%- if minutes > 0 -%}
+      {{ hours }} hours and {{ minutes }} minutes
+    {%- else -%}
+      {{ hours }} hours
+    {%- endif -%}
+  {%- else -%}
+    {{ minutes }} minutes
+  {%- endif -%}
+{%- else -%}
+the past (sunset has already occurred)
+{%- endif -%}

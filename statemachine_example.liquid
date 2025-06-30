@@ -1,0 +1,46 @@
+{% comment %}
+Generated Liquid Template
+Compatible with Adafruit IO Blockly Actions
+{% endcomment %}
+
+{% comment %} State Machine: LightController {% endcomment %}
+
+{{ current_state }}
+
+{% comment %} Event Handling {% endcomment %}
+{% if event_triggered %}
+  Event: {{ event_name }}
+{% endif %}
+
+{% comment %} State Transitions {% endcomment %}
+{% for transition in transitions %}
+  From: {{ transition.from }}
+  To: {{ transition.to }}
+  Event: {{ transition.event }}
+{% endfor %}
+
+{% comment %} Adafruit IO Feed Integration {% endcomment %}
+Temperature: {{ feeds['temperature'] }}
+Humidity: {{ feeds['humidity'] }}
+Button State: {{ feeds['button-state'] }}
+
+{% if feeds['temperature'] > 25 %}
+  High temperature detected: {{ feeds['temperature'] }}
+{% endif %}
+
+{% if feeds['button-state'] == 'pressed' %}
+  Button was pressed - triggering state change
+{% endif %}
+
+{% comment %} Smart Home Light Control Logic {% endcomment %}
+{% if current_state == 'AUTO_MODE' %}
+  {% if feeds['light-sensor'] < 200 %}
+    Turning lights ON - it's getting dark (sensor: {{ feeds['light-sensor'] }})
+  {% else %}
+    Lights remain OFF - sufficient daylight (sensor: {{ feeds['light-sensor'] }})
+  {% endif %}
+{% elsif current_state == 'MANUAL_ON' %}
+  Lights are manually ON
+{% elsif current_state == 'MANUAL_OFF' %}
+  Lights are manually OFF
+{% endif %}
