@@ -1,0 +1,108 @@
+@startuml
+
+title Garden Watering State Machine
+
+[*] --> IDLE
+
+IDLE : Output: "IDLE"
+IDLE : System ready
+IDLE : Display: "Ready"
+
+IDLE --> CALCULATE : Watering trigger
+
+CALCULATE : Output: "CALCULATE"
+CALCULATE : rain_factor = 1 - (rain_mm/10)
+CALCULATE : p1_batches = ceil(p1_base * rain_factor / 3)
+CALCULATE : p2_batches = ceil(p2_base * rain_factor / 3)
+CALCULATE : Display: "Calculating..."
+
+CALCULATE --> SKIP_ALL : All plants have 0 batches
+CALCULATE --> START_SEQUENCE : Need water
+
+SKIP_ALL : Output: "SKIP_ALL"
+SKIP_ALL : Display: "Skipped - Rain"
+SKIP_ALL : NeoPixel: Green
+SKIP_ALL --> IDLE
+
+START_SEQUENCE : Output: "START_SEQUENCE"
+START_SEQUENCE : Pump ON (immediate)
+START_SEQUENCE : Display: "Starting pump"
+START_SEQUENCE : NeoPixel: Blue
+
+START_SEQUENCE --> P1_BATCH_1 : p1_batches > 0
+START_SEQUENCE --> P2_BATCH_1 : p1_batches = 0
+
+P1_BATCH_1 : Output: "P1_BATCH_1"
+P1_BATCH_1 : Solenoid 0 ON (immediate)
+P1_BATCH_1 : Solenoid 0 OFF (3s delay)
+P1_BATCH_1 : Display: "Plant 1: 1/{p1_batches}"
+P1_BATCH_1 : batches_done = 1
+
+P1_BATCH_1 --> P1_BATCH_2 : batches_done < p1_batches
+P1_BATCH_1 --> P2_BATCH_1 : batches_done = p1_batches
+
+P1_BATCH_2 : Output: "P1_BATCH_2"
+P1_BATCH_2 : Solenoid 0 ON (immediate)
+P1_BATCH_2 : Solenoid 0 OFF (3s delay)
+P1_BATCH_2 : Display: "Plant 1: 2/{p1_batches}"
+P1_BATCH_2 : batches_done = 2
+
+P1_BATCH_2 --> P2_BATCH_1 : Done with P1
+
+P2_BATCH_1 : Output: "P2_BATCH_1"
+P2_BATCH_1 : Solenoid 1 ON (immediate)
+P2_BATCH_1 : Solenoid 1 OFF (3s delay)
+P2_BATCH_1 : Display: "Plant 2: 1/{p2_batches}"
+
+P2_BATCH_1 --> P2_BATCH_2 : More batches
+P2_BATCH_1 --> P3_BATCH_1 : Done or skip
+
+P2_BATCH_2 : Output: "P2_BATCH_2"
+P2_BATCH_2 --> P3_BATCH_1
+
+P3_BATCH_1 : Output: "P3_BATCH_1"
+P3_BATCH_1 : Solenoid 2 pattern
+P3_BATCH_1 --> P3_BATCH_2 : More
+P3_BATCH_1 --> P4_BATCH_1 : Done
+
+P3_BATCH_2 : Output: "P3_BATCH_2"
+P3_BATCH_2 --> P4_BATCH_1
+
+P4_BATCH_1 : Output: "P4_BATCH_1"
+P4_BATCH_1 : Solenoid 3 pattern
+P4_BATCH_1 --> P4_BATCH_2 : More
+P4_BATCH_1 --> P5_BATCH_1 : Done
+
+P4_BATCH_2 : Output: "P4_BATCH_2"
+P4_BATCH_2 --> P5_BATCH_1
+
+P5_BATCH_1 : Output: "P5_BATCH_1"
+P5_BATCH_1 : Solenoid 4 pattern
+P5_BATCH_1 --> P5_BATCH_2 : More
+P5_BATCH_1 --> COMPLETE : Done
+
+P5_BATCH_2 : Output: "P5_BATCH_2"
+P5_BATCH_2 --> COMPLETE
+
+COMPLETE : Output: "COMPLETE"
+COMPLETE : Pump OFF (immediate)
+COMPLETE : Display: "Complete!"
+COMPLETE : NeoPixel: Green
+COMPLETE : Log results
+COMPLETE --> IDLE : 5s later
+
+EMERGENCY : Output: "EMERGENCY"
+EMERGENCY : All solenoids OFF
+EMERGENCY : Pump OFF
+EMERGENCY : Display: "EMERGENCY"
+EMERGENCY : NeoPixel: Red
+
+IDLE --> EMERGENCY : Manual
+P1_BATCH_1 --> EMERGENCY : Error
+P2_BATCH_1 --> EMERGENCY : Error
+P3_BATCH_1 --> EMERGENCY : Error
+P4_BATCH_1 --> EMERGENCY : Error
+P5_BATCH_1 --> EMERGENCY : Error
+EMERGENCY --> IDLE : Reset
+
+@enduml

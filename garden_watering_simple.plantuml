@@ -1,0 +1,48 @@
+@startuml
+
+[*] --> IDLE
+
+IDLE --> CALCULATE : trigger
+CALCULATE --> START_SEQUENCE : need_water  
+CALCULATE --> SKIP_ALL : no_water_needed
+SKIP_ALL --> IDLE
+
+START_SEQUENCE --> P1_BATCH_1 : p1_batches > 0
+START_SEQUENCE --> P2_BATCH_1 : p1_batches = 0
+
+P1_BATCH_1 --> P1_BATCH_2 : more_batches
+P1_BATCH_1 --> P2_BATCH_1 : p1_done
+
+P1_BATCH_2 --> P2_BATCH_1 : p1_done
+
+P2_BATCH_1 --> P2_BATCH_2 : more_batches  
+P2_BATCH_1 --> P3_BATCH_1 : p2_done
+
+P2_BATCH_2 --> P3_BATCH_1 : p2_done
+
+P3_BATCH_1 --> P3_BATCH_2 : more_batches
+P3_BATCH_1 --> P4_BATCH_1 : p3_done
+
+P3_BATCH_2 --> P4_BATCH_1 : p3_done
+
+P4_BATCH_1 --> P4_BATCH_2 : more_batches
+P4_BATCH_1 --> P5_BATCH_1 : p4_done
+
+P4_BATCH_2 --> P5_BATCH_1 : p4_done
+
+P5_BATCH_1 --> P5_BATCH_2 : more_batches
+P5_BATCH_1 --> COMPLETE : p5_done
+
+P5_BATCH_2 --> COMPLETE : p5_done
+
+COMPLETE --> IDLE
+
+IDLE --> EMERGENCY : manual_stop
+P1_BATCH_1 --> EMERGENCY : error
+P2_BATCH_1 --> EMERGENCY : error  
+P3_BATCH_1 --> EMERGENCY : error
+P4_BATCH_1 --> EMERGENCY : error
+P5_BATCH_1 --> EMERGENCY : error
+EMERGENCY --> IDLE : reset
+
+@enduml

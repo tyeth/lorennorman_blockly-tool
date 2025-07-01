@@ -1,0 +1,179 @@
+@startuml
+!theme plain
+skinparam ranksep 30
+skinparam nodesep 25
+skinparam state {
+  FontSize 11
+  AttributeFontSize 10
+}
+
+title Garden Watering State Machine\n3-Second Batches with Delayed OFF Messages
+
+[*] --> IDLE
+
+IDLE : Output: "IDLE"
+IDLE : System ready
+IDLE : Display: "Ready"
+
+note right of IDLE
+  Triggered by:
+  - Sunset -2hrs
+  - Sunrise +1hrs
+  
+  Available data:
+  - predicted_rain_mm
+  - base_seconds per plant
+  - soil_moisture (optional)
+end note
+
+IDLE --> CALCULATE : Watering trigger
+
+CALCULATE : Output: "CALCULATE"
+CALCULATE : rain_factor = 1 - (rain_mm/10)
+CALCULATE : p1_batches = ceil(p1_base * rain_factor / 3)
+CALCULATE : p2_batches = ceil(p2_base * rain_factor / 3)
+CALCULATE : etc...
+CALCULATE : Display: "Calculating..."
+CALCULATE : → Next state in same action
+
+CALCULATE --> SKIP_ALL : All plants have 0 batches
+CALCULATE --> START_SEQUENCE : Need water
+
+SKIP_ALL : Output: "SKIP_ALL"
+SKIP_ALL : Display: "Skipped - Rain"
+SKIP_ALL : NeoPixel: Green
+SKIP_ALL --> IDLE
+
+START_SEQUENCE : Output: "START_SEQUENCE"
+START_SEQUENCE : Pump ON (immediate)
+START_SEQUENCE : Display: "Starting pump"
+START_SEQUENCE : NeoPixel: Blue
+START_SEQUENCE : → Next state in same action
+
+START_SEQUENCE --> P1_BATCH_1 : p1_batches > 0
+START_SEQUENCE --> P2_BATCH_1 : p1_batches = 0
+
+note right of P1_BATCH_1
+  Plant 1 Watering:
+  Each batch = 3 seconds
+  
+  Single action publishes:
+  1. Solenoid ON (immediate)
+  2. Solenoid OFF (3s delay)
+  3. State update (immediate)
+end note
+
+P1_BATCH_1 : Output: "P1_BATCH_1"
+P1_BATCH_1 : Solenoid 0 ON (immediate)
+P1_BATCH_1 : Solenoid 0 OFF (3s delay)
+P1_BATCH_1 : Display: "Plant 1: 1/{p1_batches}"
+P1_BATCH_1 : batches_done = 1
+
+P1_BATCH_1 --> P1_BATCH_2 : batches_done < p1_batches\n(5s later)
+P1_BATCH_1 --> P2_BATCH_1 : batches_done = p1_batches\n(5s later)
+
+P1_BATCH_2 : Output: "P1_BATCH_2"
+P1_BATCH_2 : Solenoid 0 ON (immediate)
+P1_BATCH_2 : Solenoid 0 OFF (3s delay)
+P1_BATCH_2 : Display: "Plant 1: 2/{p1_batches}"
+P1_BATCH_2 : batches_done = 2
+
+P1_BATCH_2 --> P1_BATCH_3 : More batches needed
+P1_BATCH_2 --> P2_BATCH_1 : Done with P1
+
+P1_BATCH_3 : Output: "P1_BATCH_3"
+P1_BATCH_3 : Same pattern...
+P1_BATCH_3 --> P1_BATCH_4 : If needed
+P1_BATCH_3 --> P2_BATCH_1 : Done
+
+P1_BATCH_4 : Output: "P1_BATCH_4"
+P1_BATCH_4 : Max batches for long water
+P1_BATCH_4 --> P2_BATCH_1
+
+P2_BATCH_1 : Output: "P2_BATCH_1"
+P2_BATCH_1 : Solenoid 1 ON (immediate)
+P2_BATCH_1 : Solenoid 1 OFF (3s delay)
+P2_BATCH_1 : Display: "Plant 2: 1/{p2_batches}"
+
+P2_BATCH_1 --> P2_BATCH_2 : More batches
+P2_BATCH_1 --> P3_BATCH_1 : Done or skip
+
+P2_BATCH_2 : Output: "P2_BATCH_2"
+P2_BATCH_2 --> P2_BATCH_3 : More batches
+P2_BATCH_2 --> P3_BATCH_1 : Done
+
+P2_BATCH_3 : Output: "P2_BATCH_3"
+P2_BATCH_3 --> P3_BATCH_1
+
+P3_BATCH_1 : Output: "P3_BATCH_1"
+P3_BATCH_1 : Solenoid 2 pattern
+P3_BATCH_1 --> P3_BATCH_2 : More
+P3_BATCH_1 --> P4_BATCH_1 : Done
+
+P3_BATCH_2 : Output: "P3_BATCH_2"
+P3_BATCH_2 --> P4_BATCH_1
+
+P4_BATCH_1 : Output: "P4_BATCH_1"
+P4_BATCH_1 : Solenoid 3 pattern
+P4_BATCH_1 --> P4_BATCH_2 : More
+P4_BATCH_1 --> P5_BATCH_1 : Done
+
+P4_BATCH_2 : Output: "P4_BATCH_2"
+P4_BATCH_2 --> P5_BATCH_1
+
+P5_BATCH_1 : Output: "P5_BATCH_1"
+P5_BATCH_1 : Solenoid 4 pattern
+P5_BATCH_1 --> P5_BATCH_2 : More
+P5_BATCH_1 --> COMPLETE : Done
+
+P5_BATCH_2 : Output: "P5_BATCH_2"
+P5_BATCH_2 --> COMPLETE
+
+COMPLETE : Output: "COMPLETE"
+COMPLETE : Pump OFF (immediate)
+COMPLETE : Display: "Complete!"
+COMPLETE : NeoPixel: Green
+COMPLETE : Log results
+COMPLETE --> IDLE : 5s later
+
+EMERGENCY : Output: "EMERGENCY"
+EMERGENCY : All solenoids OFF
+EMERGENCY : Pump OFF
+EMERGENCY : Display: "EMERGENCY"
+EMERGENCY : NeoPixel: Red
+
+IDLE -[#red]-> EMERGENCY : Manual
+P1_BATCH_1 -[#red]-> EMERGENCY : Error
+P2_BATCH_1 -[#red]-> EMERGENCY : Error
+P3_BATCH_1 -[#red]-> EMERGENCY : Error
+P4_BATCH_1 -[#red]-> EMERGENCY : Error
+P5_BATCH_1 -[#red]-> EMERGENCY : Error
+EMERGENCY --> IDLE : Reset
+
+note left of COMPLETE
+  Pump Control:
+  Separate pump action
+  monitors state and:
+  - ON during START_SEQUENCE
+  - ON during any BATCH state
+  - OFF during COMPLETE/IDLE
+end note
+
+note bottom
+  Action Types:
+  
+  1. Main State Machine (5s cooldown):
+     - Reads state, weather, sensors
+     - Publishes solenoid commands
+     - Updates state
+  
+  2. Pump Action (monitors state):
+     - If state contains "BATCH" or "SEQUENCE": Pump ON
+     - If state = "COMPLETE" or "IDLE": Pump OFF
+  
+  3. Display Action (monitors state):
+     - Updates LCD based on state
+     - Dims NeoPixel after midnight
+end note
+
+@enduml

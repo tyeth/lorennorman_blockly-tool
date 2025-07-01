@@ -1,0 +1,29 @@
+{% comment %}
+Generated Liquid Template
+Compatible with Adafruit IO Blockly Actions
+{% endcomment %}
+
+{% comment %} State Machine: ____GilData_FileTop {% endcomment %}
+
+{{ current_state }}
+
+{% comment %} Event Handling {% endcomment %}
+{% if event_triggered %}
+  Event: {{ event_name }}
+{% endif %}
+
+{% comment %} State Transitions {% endcomment %}
+{% for transition in transitions %}
+  From: {{ transition.from }}
+  To: {{ transition.to }}
+  Event: {{ transition.event }}
+{% endfor %}
+
+{% comment %} Adafruit IO Feed Integration {% endcomment %}
+Temperature: feeds['temperature']
+Humidity: feeds['humidity']
+Button State: feeds['button-state']
+
+{% if feeds['temperature'] > 25 %}
+  High temperature detected: {{ feeds['temperature'] }}
+{% endif %}

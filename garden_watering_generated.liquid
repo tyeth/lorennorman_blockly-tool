@@ -1,0 +1,158 @@
+{% comment %}
+Generated Liquid Template for Garden Watering State Machine
+Compatible with Adafruit IO Blockly Actions
+Generated from: garden_watering.plantuml
+{% endcomment %}
+
+{% comment %} Current State Output {% endcomment %}
+Current State: {{ stateVars.stateId }}
+
+{% comment %} Weather Data Integration {% endcomment %}
+Predicted Rain: {{ feeds['predicted-rain-mm'] }} mm
+Soil Moisture: {{ feeds['soil-moisture'] }}%
+
+{% comment %} Base Watering Times {% endcomment %}
+Plant 1 Base: {{ feeds['p1-base-seconds'] }}s
+Plant 2 Base: {{ feeds['p2-base-seconds'] }}s  
+Plant 3 Base: {{ feeds['p3-base-seconds'] }}s
+Plant 4 Base: {{ feeds['p4-base-seconds'] }}s
+Plant 5 Base: {{ feeds['p5-base-seconds'] }}s
+
+{% comment %} State-Based Actions {% endcomment %}
+{% case stateVars.stateId %}
+
+{% when 'IDLE' %}
+System Status: READY
+Display: "Ready for watering"
+{% if feeds['predicted-rain-mm'] > 5 %}
+  Rain Expected: {{ feeds['predicted-rain-mm'] }}mm - May skip watering
+{% endif %}
+
+{% when 'CALCULATE' %}
+Display: "Calculating watering schedule..."
+{% assign rain_factor = 1 | minus: feeds['predicted-rain-mm'] | divided_by: 10.0 %}
+Rain Factor: {{ rain_factor | round: 2 }}
+
+{% assign p1_batches = feeds['p1-base-seconds'] | times: rain_factor | divided_by: 3 | ceil %}
+{% assign p2_batches = feeds['p2-base-seconds'] | times: rain_factor | divided_by: 3 | ceil %}
+{% assign p3_batches = feeds['p3-base-seconds'] | times: rain_factor | divided_by: 3 | ceil %}
+{% assign p4_batches = feeds['p4-base-seconds'] | times: rain_factor | divided_by: 3 | ceil %}
+{% assign p5_batches = feeds['p5-base-seconds'] | times: rain_factor | divided_by: 3 | ceil %}
+
+Plant 1 Batches: {{ p1_batches }}
+Plant 2 Batches: {{ p2_batches }}  
+Plant 3 Batches: {{ p3_batches }}
+Plant 4 Batches: {{ p4_batches }}
+Plant 5 Batches: {{ p5_batches }}
+
+{% when 'SKIP_ALL' %}
+Display: "Watering Skipped - Rain Expected"
+NeoPixel: GREEN
+Status: All plants have 0 batches due to rain
+
+{% when 'START_SEQUENCE' %}
+Display: "Starting pump..."
+NeoPixel: BLUE
+Pump Control: {{ feeds['pump-control'] }} = ON
+
+{% when 'P1_BATCH_1' %}
+Display: "Plant 1: Batch 1/{{ stateVars.p1Batches }}"
+Solenoid 0: {{ feeds['solenoid-0'] }} = ON (3s)
+Progress: Watering lettuce bed
+
+{% when 'P1_BATCH_2' %}
+Display: "Plant 1: Batch 2/{{ stateVars.p1Batches }}"
+Solenoid 0: {{ feeds['solenoid-0'] }} = ON (3s)
+
+{% when 'P1_BATCH_3' %}
+Display: "Plant 1: Batch 3/{{ stateVars.p1Batches }}"
+Solenoid 0: {{ feeds['solenoid-0'] }} = ON (3s)
+
+{% when 'P1_BATCH_4' %}
+Display: "Plant 1: Batch 4/{{ stateVars.p1Batches }}"
+Solenoid 0: {{ feeds['solenoid-0'] }} = ON (3s)
+
+{% when 'P2_BATCH_1' %}
+Display: "Plant 2: Batch 1/{{ stateVars.p2Batches }}"
+Solenoid 1: {{ feeds['solenoid-1'] }} = ON (3s)
+Progress: Watering tomato bed
+
+{% when 'P2_BATCH_2' %}
+Display: "Plant 2: Batch 2/{{ stateVars.p2Batches }}"
+Solenoid 1: {{ feeds['solenoid-1'] }} = ON (3s)
+
+{% when 'P2_BATCH_3' %}
+Display: "Plant 2: Batch 3/{{ stateVars.p2Batches }}"
+Solenoid 1: {{ feeds['solenoid-1'] }} = ON (3s)
+
+{% when 'P3_BATCH_1' %}
+Display: "Plant 3: Batch 1/{{ stateVars.p3Batches }}"
+Solenoid 2: {{ feeds['solenoid-2'] }} = ON (3s)
+Progress: Watering herb garden
+
+{% when 'P3_BATCH_2' %}
+Display: "Plant 3: Batch 2/{{ stateVars.p3Batches }}"
+Solenoid 2: {{ feeds['solenoid-2'] }} = ON (3s)
+
+{% when 'P4_BATCH_1' %}
+Display: "Plant 4: Batch 1/{{ stateVars.p4Batches }}"
+Solenoid 3: {{ feeds['solenoid-3'] }} = ON (3s)
+Progress: Watering pepper bed
+
+{% when 'P4_BATCH_2' %}
+Display: "Plant 4: Batch 2/{{ stateVars.p4Batches }}"
+Solenoid 3: {{ feeds['solenoid-3'] }} = ON (3s)
+
+{% when 'P5_BATCH_1' %}
+Display: "Plant 5: Batch 1/{{ stateVars.p5Batches }}"
+Solenoid 4: {{ feeds['solenoid-4'] }} = ON (3s)
+Progress: Watering flower bed
+
+{% when 'P5_BATCH_2' %}
+Display: "Plant 5: Batch 2/{{ stateVars.p5Batches }}"
+Solenoid 4: {{ feeds['solenoid-4'] }} = ON (3s)
+
+{% when 'COMPLETE' %}
+Display: "Watering Complete!"
+NeoPixel: GREEN
+Pump Control: {{ feeds['pump-control'] }} = OFF
+Log: Watering cycle finished at {{ "now" | date: "%H:%M" }}
+
+{% when 'EMERGENCY' %}
+Display: "EMERGENCY STOP"
+NeoPixel: RED
+Emergency Status: ALL SYSTEMS OFF
+All Solenoids: OFF
+Pump: OFF
+
+{% endcase %}
+
+{% comment %} Pump Logic (Separate Action) {% endcomment %}
+{% if stateVars.stateId contains 'BATCH' or stateVars.stateId == 'START_SEQUENCE' %}
+Pump Status: ON - Watering in progress
+{% elsif stateVars.stateId == 'COMPLETE' or stateVars.stateId == 'IDLE' %}
+Pump Status: OFF - System idle
+{% endif %}
+
+{% comment %} Safety Monitoring {% endcomment %}
+{% if feeds['flow-sensor'] < 0.1 and stateVars.stateId contains 'BATCH' %}
+⚠️ WARNING: Low flow detected during watering
+{% endif %}
+
+{% if feeds['pressure-sensor'] > 50 %}
+⚠️ WARNING: High pressure detected
+{% endif %}
+
+{% comment %} Timing Information {% endcomment %}
+Current Time: {{ "now" | date: "%Y-%m-%d %H:%M:%S" }}
+Next Watering: {{ feeds['next-watering-time'] }}
+
+{% comment %} Environmental Data {% endcomment %}
+Temperature: {{ feeds['temperature'] }}°C
+Humidity: {{ feeds['humidity'] }}%
+UV Index: {{ feeds['uv-index'] }}
+
+{% comment %} System Health {% endcomment %}
+Battery Level: {{ feeds['battery-level'] }}%
+WiFi Signal: {{ feeds['wifi-signal'] }}dBm
+Uptime: {{ feeds['system-uptime'] }} hours
